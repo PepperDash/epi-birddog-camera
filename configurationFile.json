@@ -1,0 +1,78 @@
+{
+    "template": {
+        "info": {
+            "comment": "",
+            "requiredControlSofwareVersion": "",
+            "systemType": "custom",
+            "lastModifiedDate": "2018-07-09T20:00:47.873Z",
+            "processorType": "rmc4"
+        },
+        "devices": [
+            {
+                "key": "processor",
+                "group": "processor",
+                "supportsCompliance": true,
+                "type": "rmc4",
+                "properties": {},
+                "name": "rmc4"
+            },
+            {
+                "key": "camera-1",
+                "name": "Camera 1",
+                "type": "birddogCamera",
+                "group": "plugin",
+                "properties": {
+                    "control": {
+                        "method": "http",
+                        "tcpSshProperties": {
+                            "address": "192.168.1.101",
+                            "port": 8080
+                        }
+                    },
+                    "presets": [
+                        {
+                            "Name": "Preset 1",
+                            "Id": 1
+                        },
+                        {
+                            "Name": "Preset 2",
+                            "Id": 2
+                        },
+                        {
+                            "Name": "Preset 3",
+                            "Id": 3
+                        }
+                    ],
+                    "panSpeed": 25,
+                    "titlSpeed": 25,
+                    "zoomSpeed": 25
+                }
+            },
+            {
+                "key": "camera-bridge",
+                "name": "Camera Bridge",
+                "group": "api",
+                "type": "eiscApiAdvanced",
+                "properties": {
+                    "control": {
+                        "ipid": "B2",
+                        "method": "ipidTcp",
+                        "tcpSshProperties": {
+                            "address": "127.0.0.2",
+                            "port": 0
+                        }
+                    },
+                    "devices": [
+                        {
+                            "deviceKey": "camera-1",
+                            "joinStart": 1
+                        }
+                    ]
+                }
+            }
+        ]
+    },
+    "system": {},
+    "template_url": "",
+    "system_url": ""
+}

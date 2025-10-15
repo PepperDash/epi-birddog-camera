@@ -1,0 +1,38 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<ProjectType>ProgramLibrary</ProjectType>
+	</PropertyGroup>
+	<PropertyGroup>
+		<TargetFramework>net472</TargetFramework>
+		<RootNamespace>PepperDash.Essentials.Plugins.Birddog.Camera</RootNamespace>
+		<Deterministic>false</Deterministic>
+		<AssemblyTitle>PepperDash.Essentials.Plugins.Birddog.Camera</AssemblyTitle>
+		<Company>PepperDash Technology</Company>
+		<Description>This software is a plugin designed to work as a part of PepperDash Essentials for Crestron control processors. This plugin allows for control of Birddog Cameras.</Description>
+		<Copyright>Copyright 2025</Copyright>
+		<Version>1.0.0-local</Version>
+		<GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+		<InformationalVersion>$(Version)</InformationalVersion>
+		<OutputPath>4Series\bin\$(Configuration)\</OutputPath>
+		<Authors>PepperDash Technology</Authors>
+		<PackageId>Pepperdash.Essentials.Plugins.Birddog.Camera</PackageId>
+		<PackageProjectUrl>https://github.com/PepperDash/epi-birddog-camera</PackageProjectUrl>
+		<PackageTags>crestron 4series birddog camera</PackageTags>
+	</PropertyGroup>
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+		<DefineConstants>$(DefineConstants);SERIES4</DefineConstants>
+	</PropertyGroup>
+	<ItemGroup>
+		<Compile Remove="Properties\**" />
+		<EmbeddedResource Remove="Properties\**" />
+		<None Remove="Properties\**" />
+	</ItemGroup>
+	<ItemGroup>
+	  <None Remove="epi-birddog-camera.projectinfo" />
+	</ItemGroup>
+	<ItemGroup>
+	  <PackageReference Include="PepperDashEssentials" Version="2.18.0" />
+	  <PackageReference Include="Microsoft.Extensions.Http" Version="3.1.32" />
+	  <PackageReference Include="System.Net.Http" Version="4.3.4" />
+	</ItemGroup>
+</Project>
