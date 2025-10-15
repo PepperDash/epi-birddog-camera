@@ -1,6 +1,7 @@
 using System;
 using System.Net.Http;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Crestron.SimplSharpPro.DeviceSupport;
 using PepperDash.Core;
 using PepperDash.Essentials.Core;
@@ -21,6 +22,7 @@ namespace PepperDash.Essentials.Plugins.Birddog.Camera
         private readonly BirddogCameraConfig _properties;
         private readonly IBasicCommunication _comm;
         private readonly BirddogCameraCommands _commands;
+        private readonly CommandQueueManager _queueManager;
 
 
         public StatusMonitorBase CommunicationMonitor { get; private set; }
@@ -29,7 +31,17 @@ namespace PepperDash.Essentials.Plugins.Birddog.Camera
         public RoutingPortCollection<RoutingOutputPort> OutputPorts => new RoutingPortCollection<RoutingOutputPort>();
 
 
-        public BoolFeedback CameraIsOffFeedback => new BoolFeedback("cameraIsOff", () => false);
+        private bool powerIsOff;
+        public bool PowerIsOff
+        {
+            get { return powerIsOff; }
+            set
+            {
+                powerIsOff = value;
+                CameraIsOffFeedback.FireUpdate();
+            }
+        }
+        public BoolFeedback CameraIsOffFeedback => new BoolFeedback("cameraIsOff", () => PowerIsOff);
 
         public bool CanPan => true;
         public bool CanTilt => true;
@@ -88,6 +100,17 @@ namespace PepperDash.Essentials.Plugins.Birddog.Camera
             // Initialize command builder and configure speeds from properties
             _commands = new BirddogCameraCommands();
 
+            // Initialize queue system
+            _queueManager = new CommandQueueManager(
+                deviceKey: key,
+                getBaseUri: () => $"http://{_control.TcpSshProperties.Address}:{_control.TcpSshProperties.Port}",
+                httpClient: _httpClient
+            );
+
+            // Subscribe to queue events
+            _queueManager.ResponseReceived += OnResponseReceived;
+            _queueManager.RequestFailed += OnRequestFailed;
+
             // Set PTZ speeds using Birddog API ranges
             if (config != null)
             {
@@ -103,8 +126,8 @@ namespace PepperDash.Essentials.Plugins.Birddog.Camera
         public override void Initialize()
         {
             base.Initialize();
+            _queueManager.StartProcessing();
         }
-
 
         /// <summary>
         /// Links the plugin device to the EISC bridge
@@ -252,7 +275,154 @@ namespace PepperDash.Essentials.Plugins.Birddog.Camera
         }
 
 
-        public void SendRequest(BirddogApiCommand command)
+        /// <summary>
+        /// Handles responses received from the queue manager
+        /// </summary>
+        private void OnResponseReceived(object sender, CameraResponse response)
+        {
+            try
+            {
+                // Parse response content and update device state accordingly
+                ParseResponseContent(response);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError(this, "Error handling response: {0}", ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Handles failed requests from the queue manager
+        /// </summary>
+        private void OnRequestFailed(object sender, QueuedRequest failedRequest)
+        {
+            Debug.LogError(this, "Request failed after retries: {0} {1}",
+                failedRequest.Command.Method, failedRequest.Command.Path);
+
+            // Update communication monitor or other status indicators if needed
+            // This could be used to set device offline status after multiple failures
+        }
+
+
+        /// <summary>
+        /// Parses response content and updates device state accordingly
+        /// </summary>
+        private void ParseResponseContent(CameraResponse response)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(response.Content))
+                    return;
+
+                // Add response parsing logic here based on your needs
+                // Examples:
+                // - Parse PTZ settings responses to update speed feedbacks
+                // - Parse preset responses to update preset status
+                // - Parse device info responses to update online status
+
+                Debug.LogVerbose(this, $"ParseResponseContent: requestId {response.RequestId}");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError(this, $"ParseResponseContent: Exception message\n{ex.Message}");
+                Debug.LogError(this, $"ParseResponseContent: Exception content\n: {response.Content}");
+                if (ex.InnerException != null)
+                {
+                    Debug.LogError(this, $"ParseResponseContent: Inner Exception Message\n{ex.InnerException.Message}");
+                    Debug.LogError(this, $"ParseResponseContent: Inner Exception StackTrace\n{ex.InnerException.StackTrace}");
+                }
+            }
+        }
+
+        #region Queue Management Methods
+
+        /// <summary>
+        /// Gets the current queue status
+        /// </summary>
+        public (int RequestCount, int ResponseCount) GetQueueStatus()
+        {
+            return _queueManager.GetQueueStatus();
+        }
+
+        /// <summary>
+        /// Clears all pending requests from the queue
+        /// </summary>
+        public void ClearRequestQueue()
+        {
+            _queueManager.ClearRequestQueue();
+        }
+
+        /// <summary>
+        /// Clears all pending responses from the queue
+        /// </summary>
+        public void ClearResponseQueue()
+        {
+            _queueManager.ClearResponseQueue();
+        }
+
+        /// <summary>
+        /// Gets whether queue processing is currently enabled
+        /// </summary>
+        public bool IsQueueProcessingEnabled => _queueManager.IsProcessingEnabled;
+
+        /// <summary>
+        /// Sends a high-priority request that bypasses the queue (use sparingly)
+        /// </summary>
+        /// <param name="command">The command to send immediately</param>
+        /// <param name="onSuccess">Optional callback for successful response</param>
+        /// <param name="onError">Optional callback for error response</param>
+        public async Task SendHighPriorityRequest(BirddogApiCommand command, Action<string> onSuccess = null, Action<string> onError = null)
+        {
+            await _queueManager.SendHighPriorityRequest(command, onSuccess, onError);
+        }
+
+        /// <summary>
+        /// Logs current queue status for debugging
+        /// </summary>
+        public void LogQueueStatus()
+        {
+            _queueManager.LogQueueStatus();
+        }
+
+        #endregion
+
+
+        /// <summary>
+        /// Sends a request using the queue system (recommended)
+        /// </summary>
+        /// <param name="command">The command to send</param>
+        /// <param name="onSuccess">Optional callback for successful response</param>
+        /// <param name="onError">Optional callback for error response</param>
+        public void SendRequest(BirddogApiCommand command, Action<string> onSuccess = null, Action<string> onError = null)
+        {
+            try
+            {
+                if (!_queueManager.IsProcessingEnabled)
+                {
+                    Debug.LogWarning(this, "Queue processing is not enabled. Starting queue processing.");
+                    _queueManager.StartProcessing();
+                }
+
+                _queueManager.EnqueueRequest(command, onSuccess, onError);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError(this, $"SendRequest: Exception Message\n{ex.Message}");
+                Debug.LogError(this, $"SendRequest: Exception StackTrace\n{ex.StackTrace}");
+                if (ex.InnerException != null)
+                {
+                    Debug.LogError(this, $"SendRequest: Inner Exception Message\n{ex.InnerException.Message}");
+                    Debug.LogError(this, $"SendRequest: Inner Exception StackTrace\n{ex.InnerException.StackTrace}");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Sends a request synchronously (legacy method - use SendRequest instead)
+        /// </summary>
+        /// <param name="command">The command to send</param>
+        [Obsolete("Use SendRequest() with queue system instead")]
+        public void SendRequestDirect(BirddogApiCommand command)
         {
             try
             {
@@ -293,12 +463,12 @@ namespace PepperDash.Essentials.Plugins.Birddog.Camera
             }
             catch (Exception ex)
             {
-                Debug.LogError(this, $"SendRequest: Exception Message\n{ex.Message}");
-                Debug.LogError(this, $"SendRequest: Exception StackTrace\n{ex.StackTrace}");
+                Debug.LogError(this, $"SendRequestDirect: Exception Message\n{ex.Message}");
+                Debug.LogError(this, $"SendRequestDirect: Exception StackTrace\n{ex.StackTrace}");
                 if (ex.InnerException != null)
                 {
-                    Debug.LogError(this, $"SendRequest: Inner Exception Message\n{ex.InnerException.Message}");
-                    Debug.LogError(this, $"SendRequest: Inner Exception StackTrace\n{ex.InnerException.StackTrace}");
+                    Debug.LogError(this, $"SendRequestDirect: Inner Exception Message\n{ex.InnerException.Message}");
+                    Debug.LogError(this, $"SendRequestDirect: Inner Exception StackTrace\n{ex.InnerException.StackTrace}");
                 }
             }
         }
@@ -309,7 +479,17 @@ namespace PepperDash.Essentials.Plugins.Birddog.Camera
             try
             {
                 var command = _commands.PowerOn();
-                SendRequest(command);
+                SendRequest(command,
+                    onSuccess: (response) =>
+                    {
+                        Debug.LogInformation(this, "Camera power on successful");
+                        // Update power state feedback if needed
+                        CameraIsOffFeedback.FireUpdate();
+                    },
+                    onError: (error) =>
+                    {
+                        Debug.LogError(this, "Camera power on failed: {0}", error);
+                    });
             }
             catch (Exception ex)
             {
@@ -328,7 +508,17 @@ namespace PepperDash.Essentials.Plugins.Birddog.Camera
             try
             {
                 var command = _commands.PowerOff();
-                SendRequest(command);
+                SendRequest(command,
+                    onSuccess: (response) =>
+                    {
+                        Debug.LogInformation(this, "Camera power off successful");
+                        // Update power state feedback if needed
+                        CameraIsOffFeedback.FireUpdate();
+                    },
+                    onError: (error) =>
+                    {
+                        Debug.LogError(this, "Camera power on failed: {0}", error);
+                    });
             }
             catch (Exception ex)
             {
@@ -383,7 +573,7 @@ namespace PepperDash.Essentials.Plugins.Birddog.Camera
         public void PanLeft()
         {
             var command = _commands.PanLeft();
-                SendRequest(command);   
+            SendRequest(command);
         }
 
         public void PanRight()
@@ -462,7 +652,16 @@ namespace PepperDash.Essentials.Plugins.Birddog.Camera
             try
             {
                 var command = _commands.RecallPresetRest(preset);
-                SendRequest(command);
+                SendRequest(command,
+                    onSuccess: (response) =>
+                    {
+                        Debug.LogInformation(this, "Preset {0} recalled successfully", preset);
+                        // You could parse the response to confirm preset position
+                    },
+                    onError: (error) =>
+                    {
+                        Debug.LogError(this, "Preset {0} recall failed: {1}", preset, error);
+                    });
             }
             catch (Exception ex)
             {
@@ -475,7 +674,16 @@ namespace PepperDash.Essentials.Plugins.Birddog.Camera
             try
             {
                 var command = _commands.SavePresetRest(preset);
-                SendRequest(command);
+                SendRequest(command,
+                    onSuccess: (response) =>
+                    {
+                        Debug.LogInformation(this, "Preset {0} saved successfully", preset);
+                        PresetSavedFeedback.FireUpdate();
+                    },
+                    onError: (error) =>
+                    {
+                        Debug.LogError(this, "Preset {0} save failed: {1}", preset, error);
+                    });
             }
             catch (Exception ex)
             {
@@ -493,11 +701,47 @@ namespace PepperDash.Essentials.Plugins.Birddog.Camera
             try
             {
                 var command = _commands.GetAbout();
-                SendRequest(command);
+                SendRequest(command,
+                    onSuccess: (response) =>
+                    {
+                        Debug.LogInformation(this, "Device info received: {0}", response);
+                        // Parse device info here and update relevant feedbacks
+                        // Example: Parse version, model, status, etc.
+                        ParseDeviceInfo(response);
+                    },
+                    onError: (error) =>
+                    {
+                        Debug.LogError(this, "Failed to get device info: {0}", error);
+                    });
             }
             catch (Exception ex)
             {
                 Debug.LogError(this, "GetDeviceInfo failed: {0}", ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Parses device information response
+        /// </summary>
+        private void ParseDeviceInfo(string response)
+        {
+            try
+            {
+                // TODO - Add parsing logic h
+                if (!string.IsNullOrEmpty(response))
+                {
+                    Debug.LogVerbose(this, $"ParseDeviceInfo: response >>>>\n{response}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError(this, $"ParseDeviceInfo: Exception Message\n{ex.Message}");
+                Debug.LogError(this, $"ParseDeviceInfo: Exception StackTrace\n{ex.StackTrace}");
+                if (ex.InnerException != null)
+                {
+                    Debug.LogError(this, $"ParseDeviceInfo: Inner Exception Message\n{ex.InnerException.Message}");
+                    Debug.LogError(this, $"ParseDeviceInfo: Inner Exception StackTrace\n{ex.InnerException.StackTrace}");
+                }
             }
         }
 
