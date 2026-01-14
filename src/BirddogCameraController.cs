@@ -60,10 +60,16 @@ namespace PepperDash.Essentials.Plugins.Birddog.Camera
             get
             {
                 var dict = new Dictionary<uint, StringFeedback>();
+                if (Presets == null)
+                    return dict;
+                    
                 for (uint i = 1; i <= Presets.Count; i++)
                 {
                     var preset = Presets[(int)i - 1];
-                    dict[i] = new StringFeedback(string.Format("presetName{0}", i), () => preset.Description);
+                    if (preset == null)
+                        continue;
+                        
+                    dict[i] = new StringFeedback(string.Format("presetName{0}", i), () => preset?.Description ?? string.Empty);
                 }
                 return dict;
             }
@@ -120,6 +126,11 @@ namespace PepperDash.Essentials.Plugins.Birddog.Camera
                 if (config.ZoomSpeed > 0) _commands.ZoomSpeed = Math.Min(7, (int)config.ZoomSpeed);
 
                 Presets = config.Presets ?? new List<CameraPreset>();
+            }
+            else
+            {
+                // Ensure Presets is initialized even if config is null
+                Presets = new List<CameraPreset>();
             }
         }
 
