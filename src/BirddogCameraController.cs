@@ -7,10 +7,12 @@ using PepperDash.Core;
 using PepperDash.Essentials.Core;
 using PepperDash.Essentials.Core.Bridges;
 using PepperDash.Essentials.Devices.Common.Cameras;
+using Crestron.SimplSharpPro;
+using Crestron.SimplSharp;
 
 namespace PepperDash.Essentials.Plugins.Birddog.Camera
 {
-    public class BirddogCameraController : EssentialsBridgeableDevice, ICommunicationMonitor, IRoutingSource,
+    public class BirddogCameraController : EssentialsBridgeableDevice, IRoutingSource,
         IHasCameraOff, IHasCameraPtzControl, IHasCameraFocusControl, IHasCameraPresets
     {
         private static readonly HttpClient _httpClient = new HttpClient
@@ -20,16 +22,28 @@ namespace PepperDash.Essentials.Plugins.Birddog.Camera
 
         private readonly EssentialsControlPropertiesConfig _control;
         private readonly BirddogCameraConfig _properties;
-        private readonly IBasicCommunication _comm;
         private readonly BirddogCameraCommands _commands;
         private readonly CommandQueueManager _queueManager;
-
-
-        public StatusMonitorBase CommunicationMonitor { get; private set; }
-        public BoolFeedback IsOnlineFeedback { get { return CommunicationMonitor.IsOnlineFeedback; } }
+        
+        private CTimer _pollTimer;
+        private long _pollInterval = 30000; // 30 seconds
+        private readonly long _timeoutInterval = 180000; // 3 minutes
 
         public RoutingPortCollection<RoutingOutputPort> OutputPorts => new RoutingPortCollection<RoutingOutputPort>();
 
+        private bool isOnline;
+        public bool IsOnline {
+            get
+            {
+                return isOnline;
+            }
+            set
+            {
+                isOnline = value;
+                IsOnlineFeedback.FireUpdate();
+            }
+        }
+        public BoolFeedback IsOnlineFeedback => new BoolFeedback("isOnline", () => IsOnline);
 
         private bool powerIsOff;
         public bool PowerIsOff
@@ -96,13 +110,12 @@ namespace PepperDash.Essentials.Plugins.Birddog.Camera
         /// <param name="key">device key</param>
         /// <param name="name">device name</param>
         /// <param name="config">device config</param>
-        public BirddogCameraController(string key, string name, EssentialsControlPropertiesConfig control, IBasicCommunication comm, BirddogCameraConfig config)
+        public BirddogCameraController(string key, string name, EssentialsControlPropertiesConfig control, BirddogCameraConfig config)
             : base(key, name)
         {
             this._control = control;
             this._properties = config;
-            this._comm = comm;
-
+            
             // Initialize command builder and configure speeds from properties
             _commands = new BirddogCameraCommands();
 
@@ -116,7 +129,11 @@ namespace PepperDash.Essentials.Plugins.Birddog.Camera
             // Subscribe to queue events
             _queueManager.ResponseReceived += OnResponseReceived;
             _queueManager.RequestFailed += OnRequestFailed;
-
+            
+            // Initialize online monitoring timers
+            var pollTimeMs = config?.PollTimeMs ?? 30000;
+            _pollInterval = pollTimeMs;
+            
             // Set PTZ speeds using Birddog API ranges
             if (config != null)
             {
@@ -138,6 +155,40 @@ namespace PepperDash.Essentials.Plugins.Birddog.Camera
         {
             base.Initialize();
             _queueManager.StartProcessing();
+            
+            // Start polling timer
+            _pollTimer = new CTimer(PollDevice, null, _pollInterval, _pollInterval);
+            
+            // Start timeout timer
+            _pollTimer = new CTimer(OnTimeout, null, _timeoutInterval, _timeoutInterval);
+        }
+        
+        /// <summary>
+        /// Poll the device for status
+        /// </summary>
+        private void PollDevice(object userSpecific)
+        {
+            try
+            {
+                var command = _commands.GetAbout();
+                SendRequest(command);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError(this, "Error polling device: {0}", ex.Message);
+            }
+        }
+        
+        /// <summary>
+        /// Called when device times out without response
+        /// </summary>
+        private void OnTimeout(object userSpecific)
+        {
+            if (!IsOnline)
+                return; // Already offline
+                
+            Debug.LogWarning(this, "Device timed out - setting offline");
+            IsOnline = false;
         }
 
         /// <summary>
@@ -198,6 +249,12 @@ namespace PepperDash.Essentials.Plugins.Birddog.Camera
 
         public void LinkPtzControlsToApi(BasicTriList trilist, BirddogCameraBridgeJoinMap joinMap)
         {
+            if (_commands == null)
+            {
+                Debug.LogError(this, "LinkPtzControlsToApi: _commands is null");
+                return;
+            }
+
             PanSpeedFeedback.LinkInputSig(trilist.UShortInput[joinMap.PanSpeed.JoinNumber]);
             TiltSpeedFeedback.LinkInputSig(trilist.UShortInput[joinMap.TiltSpeed.JoinNumber]);
             ZoomSpeedFeedback.LinkInputSig(trilist.UShortInput[joinMap.ZoomSpeed.JoinNumber]);
@@ -293,6 +350,15 @@ namespace PepperDash.Essentials.Plugins.Birddog.Camera
         {
             try
             {
+                // Set online and reset poll timer
+                IsOnline = true;
+                
+                // Reset the poll timer
+                if (_pollTimer != null)
+                {
+                    _pollTimer.Reset(_pollInterval, _pollInterval);
+                }
+                
                 // Parse response content and update device state accordingly
                 ParseResponseContent(response);
             }
@@ -325,6 +391,7 @@ namespace PepperDash.Essentials.Plugins.Birddog.Camera
                 if (string.IsNullOrEmpty(response.Content))
                     return;
 
+                IsOnline = true;
                 // Add response parsing logic here based on your needs
                 // Examples:
                 // - Parse PTZ settings responses to update speed feedbacks
