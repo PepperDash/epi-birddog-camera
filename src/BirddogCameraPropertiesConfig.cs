@@ -13,16 +13,16 @@ namespace PepperDash.Essentials.Plugins.Birddog.Camera
 		[JsonProperty("tiltSpeed")]
 		public uint TiltSpeed { get; set; }
 
-		[JsonProperty("ZoomSpeed")]
+		[JsonProperty("zoomSpeed")]
 		public uint ZoomSpeed { get; set; }
 
-		[JsonProperty("FocusSpeed")]
+		[JsonProperty("focusSpeed")]
 		public uint FocusSpeed { get; set; }
 
-		[JsonProperty("PrivacyOnPreset")]
+		[JsonProperty("privacyOnPreset")]
 		public uint PrivacyOnPreset { get; set; }
 
-		[JsonProperty("PrivacyOffPreset")]
+		[JsonProperty("privacyOffPreset")]
 		public uint PrivacyOffPreset { get; set; }
 
 		[JsonProperty("pollTimeMs")]
