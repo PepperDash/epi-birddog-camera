@@ -176,3 +176,194 @@ devjson:1 {"deviceKey":"camera-1", "methodName":"SavePreset", "params":[9]}
 
 devjson:1 {"deviceKey":"camera-1", "methodName":"SendCustomCommand", "params":["customCommandString"]}
 ```
+<!-- START Minimum Essentials Framework Versions -->
+### Minimum Essentials Framework Versions
+
+- 2.16.2
+<!-- END Minimum Essentials Framework Versions -->
+<!-- START Config Example -->
+### Config Example
+
+```json
+{
+    "key": "GeneratedKey",
+    "uid": 1,
+    "name": "GeneratedName",
+    "type": "BirddogCamera",
+    "group": "Group",
+    "properties": {
+        "panSpeed": "SampleValue",
+        "tiltSpeed": "SampleValue",
+        "ZoomSpeed": "SampleValue",
+        "FocusSpeed": "SampleValue",
+        "PrivacyOnPreset": "SampleValue",
+        "PrivacyOffPreset": "SampleValue",
+        "pollTimeMs": 0
+    }
+}
+```
+<!-- END Config Example -->
+<!-- START Supported Types -->
+
+<!-- END Supported Types -->
+<!-- START Join Maps -->
+### Join Maps
+
+#### Digitals
+
+| Join | Type (RW) | Description |
+| --- | --- | --- |
+| 1 | R | Camera tilt up |
+| 2 | R | Camera tilt down |
+| 3 | R | Camera pan left |
+| 4 | R | Camera pan right |
+| 5 | R | Camera zoom in |
+| 6 | R | Camera zoom out |
+| 7 | R | Camera power on |
+| 8 | R | Camera power off |
+| 9 | R | Camera is online |
+| 10 | R | Camera home |
+| 11 | R | Camera preset recall |
+| 30 | R | Camera preset saved Feedback |
+| 31 | R | Camera preset save |
+| 48 | R | Camera privacy on |
+| 49 | R | Camera privacy off |
+
+#### Analogs
+
+| Join | Type (RW) | Description |
+| --- | --- | --- |
+| 1 | R | Camera pan speed |
+| 2 | R | Camera tilt speed |
+| 3 | R | Camera zoom speed |
+| 11 | R | Camera number of preset |
+| 13 | R | Preset select by number |
+| 14 | R | Preset store by number |
+
+#### Serials
+
+| Join | Type (RW) | Description |
+| --- | --- | --- |
+| 1 | R | Camera device name |
+| 2 | R | Camera IP Address |
+| 11 | R | Camera preset names |
+<!-- END Join Maps -->
+<!-- START Interfaces Implemented -->
+### Interfaces Implemented
+
+- ICommunicationMonitor
+- IRoutingSource
+- IHasCameraOff
+- IHasCameraPtzControl
+- IHasCameraFocusControl
+- IHasCameraPresets
+<!-- END Interfaces Implemented -->
+<!-- START Base Classes -->
+### Base Classes
+
+- JoinMapBaseAdvanced
+- EssentialsBridgeableDevice
+- CameraPropertiesConfig
+<!-- END Base Classes -->
+<!-- START Public Methods -->
+### Public Methods
+
+- public BirddogApiCommand PositionHome()
+- public BirddogApiCommand PositionPrivacy()
+- public BirddogApiCommand PowerOn()
+- public BirddogApiCommand PowerOff()
+- public BirddogApiCommand GetAbout()
+- public BirddogApiCommand GetHostname()
+- public BirddogApiCommand GetVersion()
+- public BirddogApiCommand Reboot()
+- public BirddogApiCommand Restart()
+- public BirddogApiCommand GetPtzSettings()
+- public BirddogApiCommand SetPtzSettings(int panSpeed, int tiltSpeed, int zoomSpeed)
+- public BirddogApiCommand PanLeft()
+- public BirddogApiCommand PanRight()
+- public BirddogApiCommand TiltUp()
+- public BirddogApiCommand TiltDown()
+- public BirddogApiCommand TiltUpLeft()
+- public BirddogApiCommand TiltUpRight()
+- public BirddogApiCommand TiltDownLeft()
+- public BirddogApiCommand TiltDownRight()
+- public BirddogApiCommand PanTiltStop()
+- public BirddogApiCommand ZoomIn()
+- public BirddogApiCommand ZoomOut()
+- public BirddogApiCommand ZoomStop()
+- public BirddogApiCommand FocusNear()
+- public BirddogApiCommand FocusFar()
+- public BirddogApiCommand FocusStop()
+- public BirddogApiCommand RecallPresetRest(int preset)
+- public BirddogApiCommand SavePresetRest(int preset)
+- public BirddogApiCommand GetEncodeSettings()
+- public BirddogApiCommand SetEncodeSettings(string streamName, string videoFormat = "1080p50", 
+            string colorBitDepth = "8Bit", string videoSampleRate = "420")
+- public BirddogApiCommand GetAudioSettings()
+- public BirddogApiCommand SetAudioSettings(int audioInGain = 80, int audioOutGain = 80, 
+            string outputSelect = "DecodeMain")
+- public BirddogApiCommand GetPictureSettings()
+- public BirddogApiCommand SetPictureSettings(int brightness = 2, int contrast = 1, int color = 8,
+            int hue = 7, int sharpness = 122, bool flip = false, bool mirror = false)
+- public BirddogApiCommand GetExposureSettings()
+- public BirddogApiCommand SetExposureSettings(string expMode = "FULL-AUTO", int brightLevel = 24,
+            int gainLevel = 4, int gainLimit = 11, int shutterSpeed = 16)
+- public BirddogApiCommand GetWhiteBalanceSettings()
+- public BirddogApiCommand SetWhiteBalanceSettings(string wbMode = "AUTO", int colorTemp = 5600,
+            int redGain = 179, int blueGain = 174)
+- public BirddogApiCommand ConnectToNdiSource(string sourceName)
+- public BirddogApiCommand GetConnectedNdiSource()
+- public BirddogApiCommand GetNdiSourceList()
+- public BirddogApiCommand RefreshNdiSources()
+- public BirddogApiCommand CustomRestCommand(string path, string method = "GET", object bodyObject = null)
+- public void LogCommand(BirddogApiCommand command, string context = "")
+- public void LinkPowerControlsToApi(BasicTriList trilist, BirddogCameraBridgeJoinMap joinMap)
+- public void LinkPtzControlsToApi(BasicTriList trilist, BirddogCameraBridgeJoinMap joinMap)
+- public void LinkPresetControlsToApi(BasicTriList trilist, BirddogCameraBridgeJoinMap joinMap)
+- public void UpdateFeedbacks()
+- public void SendRequest(BirddogApiCommand command)
+- public void CameraOn()
+- public void CameraOff()
+- public void PositionHome()
+- public void PositionPrivacy()
+- public void PanLeft()
+- public void PanRight()
+- public void PanStop()
+- public void TiltDown()
+- public void TiltUp()
+- public void TiltStop()
+- public void ZoomIn()
+- public void ZoomOut()
+- public void ZoomStop()
+- public void FocusNear()
+- public void FocusFar()
+- public void FocusStop()
+- public void TriggerAutoFocus()
+- public void PresetSelect(int preset)
+- public void PresetStore(int preset, string description)
+- public void GetDeviceInfo()
+- public void SetPtzSpeeds(int panSpeed, int tiltSpeed, int zoomSpeed)
+- public void GetPtzSettings()
+- public void SetPictureSettings(int brightness = 2, int contrast = 1, int color = 8,
+            int hue = 7, int sharpness = 122, bool flip = false, bool mirror = false)
+- public void SetAudioSettings(int audioInGain = 80, int audioOutGain = 80, string outputSelect = "DecodeMain")
+- public EssentialsControlPropertiesConfig GetControlFromDeviceConfig(DeviceConfig dc)
+<!-- END Public Methods -->
+<!-- START Bool Feedbacks -->
+### Bool Feedbacks
+
+- IsOnlineFeedback
+- CameraIsOffFeedback
+- PresetSavedFeedback
+<!-- END Bool Feedbacks -->
+<!-- START Int Feedbacks -->
+### Int Feedbacks
+
+- PanSpeedFeedback
+- TiltSpeedFeedback
+- ZoomSpeedFeedback
+- NumberOfPresetsFeedback
+<!-- END Int Feedbacks -->
+<!-- START String Feedbacks -->
+
+<!-- END String Feedbacks -->
